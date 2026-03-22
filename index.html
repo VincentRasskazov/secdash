@@ -8,51 +8,98 @@
     <style>
         body { background-color: #0f172a; color: #10b981; font-family: 'Courier New', Courier, monospace; }
         .glass-panel { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen p-8">
 
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-10 border-b border-emerald-800 pb-4">
-            <h1 class="text-4xl font-bold text-emerald-400">SecDash <span class="text-sm text-slate-400 font-normal">v1.0 (Static)</span></h1>
-            <p class="text-slate-400 mt-2">Client-side reconnaissance and payload generation.</p>
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-10 border-b border-emerald-800 pb-4 flex justify-between items-end">
+            <div>
+                <h1 class="text-4xl font-bold text-emerald-400">SecDash</h1>
+                <p class="text-slate-400 mt-2">Static Client-Side Security Workbench</p>
+            </div>
+            <div id="copyToast" class="text-emerald-400 text-sm hidden transition-opacity border border-emerald-800 bg-emerald-900/50 px-3 py-1 rounded">
+                Payload copied to clipboard.
+            </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="glass-panel p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl text-emerald-300 mb-4">🌐 Quick Recon</h2>
-                <p class="text-xs text-slate-400 mb-4">Resolves domain to IP, then checks Shodan InternetDB for open ports & vulns.</p>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="glass-panel p-6 rounded-lg shadow-lg lg:col-span-1">
+                <h2 class="text-2xl text-emerald-300 mb-4">Target Recon</h2>
+                <p class="text-xs text-slate-400 mb-4">Resolves IP, checks geolocation, and queries Shodan InternetDB for open ports and CVEs.</p>
                 
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="targetInput" placeholder="example.com" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-emerald-200 focus:outline-none focus:border-emerald-500">
                     <button onclick="runRecon()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded transition">Scan</button>
                 </div>
 
-                <div id="reconResults" class="bg-slate-900 p-4 rounded min-h-[200px] text-sm overflow-auto text-slate-300">
-                    Waiting for target...
+                <div id="reconResults" class="bg-slate-900 p-4 rounded h-[400px] text-sm overflow-y-auto text-slate-300 custom-scrollbar">
+                    System ready. Enter target to begin.
                 </div>
             </div>
 
-            <div class="glass-panel p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl text-emerald-300 mb-4">💻 Console Payloads</h2>
-                <p class="text-xs text-slate-400 mb-4">Copy these to run in the target's browser console.</p>
+            <div class="glass-panel p-6 rounded-lg shadow-lg lg:col-span-2">
+                <h2 class="text-2xl text-emerald-300 mb-4">Console Payload Library</h2>
+                <p class="text-xs text-slate-400 mb-4">Inject these scripts directly into the target's browser console (F12) to bypass CORS and analyze the DOM locally.</p>
                 
-                <div class="space-y-4">
-                    <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
-                        <span class="text-emerald-100">🍪 Cookie Security Auditor</span>
-                        <button onclick="copyPayload('cookie')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy JS</button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    
+                    <div class="space-y-3">
+                        <h3 class="text-emerald-500 border-b border-slate-700 pb-1">DOM & Inputs</h3>
+                        
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Reveal Hidden Inputs</span>
+                            <button onclick="copyPayload('hiddenInputs')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Extract Form Actions</span>
+                            <button onclick="copyPayload('forms')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Extract HTML Comments</span>
+                            <button onclick="copyPayload('comments')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Find External Links</span>
+                            <button onclick="copyPayload('externalLinks')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
                     </div>
-                    <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
-                        <span class="text-emerald-100">🔗 Form Action Extractor</span>
-                        <button onclick="copyPayload('forms')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy JS</button>
+
+                    <div class="space-y-3">
+                        <h3 class="text-emerald-500 border-b border-slate-700 pb-1">Storage & State</h3>
+                        
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Dump All Cookies</span>
+                            <button onclick="copyPayload('cookies')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Dump LocalStorage</span>
+                            <button onclick="copyPayload('localStorage')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Dump SessionStorage</span>
+                            <button onclick="copyPayload('sessionStorage')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
                     </div>
-                    <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
-                        <span class="text-emerald-100">🕵️ Hidden Input Revealer</span>
-                        <button onclick="copyPayload('hidden')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy JS</button>
+
+                    <div class="space-y-3 md:col-span-2 mt-4">
+                        <h3 class="text-emerald-500 border-b border-slate-700 pb-1">In-Situ Vulnerability Scanning</h3>
+                        
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">DOM XSS Sink Finder (innerHTML/eval)</span>
+                            <button onclick="copyPayload('xssSinks')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-700">
+                            <span class="text-emerald-100 text-sm">Regex Sensitive Data Finder (Emails, Keys)</span>
+                            <button onclick="copyPayload('sensitiveData')" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs transition">Copy</button>
+                        </div>
                     </div>
+
                 </div>
-                
-                <div id="copyToast" class="text-emerald-400 text-sm mt-4 hidden transition-opacity">✅ Payload copied to clipboard!</div>
             </div>
         </div>
     </div>
