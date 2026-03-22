@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecDash | Advanced Client Workbench</title>
+    <title>SecDash | V6 Terminal Velocity</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #030712; color: #10b981; font-family: 'Consolas', 'Courier New', monospace; }
-        .glass-panel { background: #0f172a; border: 1px solid #1e3a8a; }
+        body { background-color: #020617; color: #10b981; font-family: 'Consolas', 'Courier New', monospace; }
+        .glass-panel { background: #0f172a; border: 1px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.1); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #030712; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 3px; }
-        .payload-btn { background: #1e3a8a; color: #93c5fd; transition: all 0.2s; }
-        .payload-btn:hover { background: #3b82f6; color: #fff; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #020617; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
+        .payload-btn { background: #1e3a8a; color: #93c5fd; transition: all 0.2s; border: 1px solid #1d4ed8; }
+        .payload-btn:hover { background: #2563eb; color: #fff; box-shadow: 0 0 10px rgba(37, 99, 235, 0.8); }
         .god-btn { background: #7f1d1d; color: #fca5a5; transition: all 0.2s; border: 1px solid #ef4444; }
-        .god-btn:hover { background: #ef4444; color: #fff; box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); transform: scale(1.02); }
+        .god-btn:hover { background: #ef4444; color: #fff; box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); transform: scale(1.02); }
     </style>
 </head>
 <body class="min-h-screen p-6">
@@ -22,69 +22,70 @@
     <div class="max-w-screen-2xl mx-auto">
         <header class="mb-6 flex flex-col md:flex-row justify-between items-end border-b border-blue-900 pb-4 gap-4">
             <div>
-                <h1 class="text-4xl font-bold text-blue-500 tracking-tight">SecDash <span class="text-sm text-red-500 font-bold bg-red-950/50 px-2 py-1 rounded border border-red-900">v5.0 OVERKILL</span></h1>
-                <p class="text-slate-400 text-sm mt-2">100% Client-Side OSINT & In-Situ Exploitation</p>
+                <h1 class="text-4xl font-bold text-blue-500 tracking-tight text-shadow">SecDash <span class="text-sm text-yellow-400 font-bold bg-yellow-950/50 px-2 py-1 rounded border border-yellow-700">v6.0 TERMINAL VELOCITY</span></h1>
+                <p class="text-slate-400 text-sm mt-2">Maximum Client-Side Reconnaissance</p>
             </div>
             
             <div class="w-full md:w-2/3 flex gap-2">
-                <input type="text" id="targetInput" placeholder="Target (e.g., hackerone.com)" class="w-full bg-[#030712] border border-blue-900 rounded px-3 py-2 text-blue-300 focus:outline-none focus:border-blue-500">
-                <button onclick="runRecon()" class="bg-blue-700 hover:bg-blue-600 text-white px-6 py-2 rounded font-bold transition shadow-[0_0_15px_rgba(29,78,216,0.6)]">EXECUTE</button>
+                <input type="text" id="targetInput" placeholder="Target (e.g., bugcrowd.com)" class="w-full bg-[#020617] border border-blue-900 rounded px-3 py-2 text-blue-300 focus:outline-none focus:border-blue-500 font-bold tracking-wider">
+                <button onclick="runRecon()" class="bg-blue-700 hover:bg-blue-600 text-white px-6 py-2 rounded font-bold transition shadow-[0_0_15px_rgba(29,78,216,0.8)]">ENGAGE</button>
                 <button onclick="exportReport()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-4 py-2 rounded transition">Export .txt</button>
             </div>
         </header>
 
-        <div id="copyToast" class="fixed top-4 right-4 bg-green-900 border border-green-500 text-green-300 px-4 py-2 rounded shadow-lg hidden z-50 font-bold">
+        <div id="copyToast" class="fixed top-4 right-4 bg-green-900 border border-green-500 text-green-300 px-4 py-2 rounded shadow-[0_0_20px_rgba(16,185,129,0.5)] hidden z-50 font-bold">
             [+] Payload Copied!
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <div class="glass-panel p-5 rounded-lg shadow-xl lg:col-span-4 flex flex-col h-[850px]">
+            <div class="glass-panel p-5 rounded-lg lg:col-span-5 flex flex-col h-[880px]">
                 <h2 class="text-lg text-blue-400 font-bold mb-3 border-b border-blue-900 pb-2 flex justify-between">
-                    <span>Automated OSINT</span>
-                    <span class="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded">No-CORS APIs</span>
+                    <span>Automated Recon</span>
+                    <span class="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded animate-pulse">LIVE</span>
                 </h2>
-                <div id="reconResults" class="flex-grow bg-black p-4 rounded text-xs overflow-y-auto text-slate-300 custom-scrollbar whitespace-pre-wrap font-mono leading-relaxed border border-slate-800">System idle. Ready to deploy...</div>
+                <div id="reconResults" class="flex-grow bg-[#050b14] p-4 rounded text-xs overflow-y-auto text-slate-300 custom-scrollbar whitespace-pre-wrap font-mono leading-relaxed border border-slate-800">System online. Awaiting coordinates...</div>
             </div>
 
-            <div class="glass-panel p-5 rounded-lg shadow-xl lg:col-span-8 flex flex-col h-[850px]">
+            <div class="glass-panel p-5 rounded-lg lg:col-span-7 flex flex-col h-[880px]">
                 <div class="flex justify-between items-center mb-4 border-b border-blue-900 pb-3">
-                    <h2 class="text-lg text-blue-400 font-bold">In-Browser Payload Arsenal (DevTools / F12)</h2>
-                    <button onclick="copyPayload('godMode')" class="god-btn px-6 py-2 rounded text-sm font-bold tracking-widest animate-pulse">🔥 COPY GOD MODE v2 🔥</button>
+                    <h2 class="text-lg text-blue-400 font-bold">Console Injection Arsenal</h2>
+                    <button onclick="copyPayload('godMode')" class="god-btn px-6 py-2 rounded text-sm font-bold tracking-widest">🔥 COPY GOD MODE v3 🔥</button>
                 </div>
                 
                 <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-6">
                     
                     <div class="space-y-2">
-                        <h3 class="text-indigo-400 text-sm font-bold bg-indigo-950/50 py-1 px-2 rounded border border-indigo-900">Tech Profiling & Recon</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Run Client-Side Wappalyzer</span><button onclick="copyPayload('techProfiler')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract All Subdomains</span><button onclick="copyPayload('subdomains')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract API Endpoints (RegEx)</span><button onclick="copyPayload('apiEndpoints')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract HTML Comments</span><button onclick="copyPayload('comments')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <h3 class="text-indigo-400 text-sm font-bold bg-indigo-950/50 py-1 px-2 rounded border border-indigo-900">Tech Profiling</h3>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Run Wappalyzer Clone</span><button onclick="copyPayload('techProfiler')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">React/Redux State Dump</span><button onclick="copyPayload('reduxState')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract Subdomains</span><button onclick="copyPayload('subdomains')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract API Endpoints</span><button onclick="copyPayload('apiEndpoints')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
                     </div>
 
                     <div class="space-y-2">
-                        <h3 class="text-emerald-400 text-sm font-bold bg-emerald-950/50 py-1 px-2 rounded border border-emerald-900">State & Storage Extraction</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump IndexedDB (Hard!)</span><button onclick="copyPayload('indexedDB')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump Local & Session Storage</span><button onclick="copyPayload('storage')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump & Analyze Cookies</span><button onclick="copyPayload('cookies')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hunt for JWTs (JSON Web Tokens)</span><button onclick="copyPayload('jwtHunter')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <h3 class="text-emerald-400 text-sm font-bold bg-emerald-950/50 py-1 px-2 rounded border border-emerald-900">State & Storage</h3>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump IndexedDB</span><button onclick="copyPayload('indexedDB')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump Local/Session Storage</span><button onclick="copyPayload('storage')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump Cookies</span><button onclick="copyPayload('cookies')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hunt for JWTs</span><button onclick="copyPayload('jwtHunter')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h3 class="text-amber-400 text-sm font-bold bg-amber-950/50 py-1 px-2 rounded border border-amber-900">Traffic & Event Hooking</h3>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">PostMessage Tracker </span><button onclick="copyPayload('postMessage')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hook Fetch/XHR</span><button onclick="copyPayload('xhrHook')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Monitor WebSockets</span><button onclick="copyPayload('wsMonitor')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Bypass Copy/Right-Click</span><button onclick="copyPayload('enableRightClick')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
                     </div>
 
                     <div class="space-y-2">
                         <h3 class="text-rose-400 text-sm font-bold bg-rose-950/50 py-1 px-2 rounded border border-rose-900">Vulnerability Scanners</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">DOM XSS Sinks (eval, innerHTML)</span><button onclick="copyPayload('xssSinks')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Regex Secrets Finder (API Keys)</span><button onclick="copyPayload('sensitiveData')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Prototype Pollution Checker</span><button onclick="copyPayload('prototypePollution')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Test Clickjacking (Iframe Self)</span><button onclick="copyPayload('clickjacking')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h3 class="text-amber-400 text-sm font-bold bg-amber-950/50 py-1 px-2 rounded border border-amber-900">Traffic Hooking & Evasion</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hook Fetch & XHR (Log APIs)</span><button onclick="copyPayload('xhrHook')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Monitor WebSocket Traffic</span><button onclick="copyPayload('wsMonitor')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Bypass Copy/Paste/Right-Click</span><button onclick="copyPayload('enableRightClick')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Reveal All Hidden Inputs</span><button onclick="copyPayload('hiddenInputs')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">DOM XSS Sinks</span><button onclick="copyPayload('xssSinks')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Regex Internal IP Finder</span><button onclick="copyPayload('internalIPs')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Regex API Keys/Emails</span><button onclick="copyPayload('sensitiveData')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Prototype Pollution</span><button onclick="copyPayload('prototypePollution')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Local Storage Poisoner</span><button onclick="copyPayload('lsPoison')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
                     </div>
                 </div>
             </div>
