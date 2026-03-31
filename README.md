@@ -6,8 +6,10 @@ It is designed for readability and operational flow:
 
 - Passive reconnaissance modules to map exposure quickly.
 - Active testing toolcards organized by category.
+- Search and compact mode to reduce visual clutter.
 - Findings tracking with severity and evidence.
-- One-click markdown report export.
+- Automated scan summary with risk score and recommendations.
+- One-click markdown report export with executive summary.
 
 No backend is required.
 
@@ -32,9 +34,11 @@ Current module coverage:
 3. TLS Certificate Review
 4. Subdomain Intelligence
 5. Historical Surface (Wayback sample)
-6. Port and CVE Exposure (Shodan InternetDB)
-7. HTTP Header Posture
-8. DNS Policy Signals (MX/NS/CAA/DNSKEY)
+6. Robots and Sitemap Discovery
+7. security.txt Presence
+8. Port and CVE Exposure (Shodan InternetDB)
+9. HTTP Header Posture
+10. DNS Policy Signals (MX/NS/CAA/DNSKEY)
 
 ### Active Testing Section
 
@@ -57,13 +61,21 @@ Categories currently include:
 7. Business Logic
 8. Client-Side
 
+Additional tool coverage includes SSRF checks, CSRF origin validation, host-header poisoning tests, and cache-poisoning heuristics.
+
 ### Findings and Reporting Section
 
 The reporting panel allows you to:
 
 1. Add findings with severity, evidence URL, and notes
 2. Track findings in-session
-3. Export a markdown report including:
+3. Generate an automated post-scan summary including:
+	- risk score and risk tier
+	- highlight list
+	- notable observations from recon logs
+	- prioritized recommendations
+4. Export a markdown report including:
+	- executive summary and score snapshot
 	- recon status summary
 	- recon logs
 	- selected active testing runbook commands

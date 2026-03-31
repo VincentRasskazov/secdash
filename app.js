@@ -2,7 +2,8 @@
 
 const STORAGE_KEY = "secdash.session.v1";
 const RECON_TIMEOUT_MS = 15000;
-const MAX_LOG_LINES = 700;
+const MAX_LOG_LINES = 350;
+const PERSIST_DEBOUNCE_MS = 250;
 const DEFAULT_FILTER = "All";
 const IPV4_PATTERN = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
@@ -16,9 +17,15 @@ const dom = {
     clearReconLogBtn: document.getElementById("clearReconLogBtn"),
     reconOutput: document.getElementById("reconOutput"),
     activeCategoryFilters: document.getElementById("activeCategoryFilters"),
+    activeSearchInput: document.getElementById("activeSearchInput"),
+    compactModeToggle: document.getElementById("compactModeToggle"),
+    activeToolCount: document.getElementById("activeToolCount"),
     activeToolGrid: document.getElementById("activeToolGrid"),
     commandBundle: document.getElementById("commandBundle"),
     copyBundleBtn: document.getElementById("copyBundleBtn"),
+    copySummaryBtn: document.getElementById("copySummaryBtn"),
+    scanSummaryStats: document.getElementById("scanSummaryStats"),
+    scanSummaryNarrative: document.getElementById("scanSummaryNarrative"),
     findingForm: document.getElementById("findingForm"),
     findingTitle: document.getElementById("findingTitle"),
     findingSeverity: document.getElementById("findingSeverity"),
@@ -73,6 +80,22 @@ const reconModules = [
         description: "Sample archived endpoints from Wayback snapshots for legacy exposure.",
         coverage: "Hidden and deprecated routes",
         run: runHistoricalSurface
+    },
+    {
+        id: "robots-sitemap",
+        mode: "Low Impact",
+        name: "Robots and Sitemap Discovery",
+        description: "Read robots.txt and sitemap references to identify hidden or sensitive crawl paths.",
+        coverage: "Application route intelligence",
+        run: runRobotsAndSitemap
+    },
+    {
+        id: "security-txt",
+        mode: "Low Impact",
+        name: "security.txt Presence",
+        description: "Check coordinated disclosure metadata and contact channels exposed by the target.",
+        coverage: "Disclosure readiness and response hygiene",
+        run: runSecurityTxtPresence
     },
     {
         id: "port-exposure",
@@ -234,6 +257,54 @@ const activeTools = [
         command: "curl -isk -X OPTIONS \"{{ORIGIN}}/api/me\" -H \"Origin: https://attacker.example\" -H \"Access-Control-Request-Method: GET\""
     },
     {
+        id: "ssrf-reachability",
+        category: "API Security",
+        title: "SSRF Reachability Probe",
+        description: "Test backend URL fetchers for internal network and metadata service exposure.",
+        checklist: [
+            "Probe URL preview/import endpoints that fetch remote resources.",
+            "Test localhost, RFC1918 ranges, and cloud metadata endpoints.",
+            "Validate egress allowlisting and protocol restrictions."
+        ],
+        command: "curl -isk -X POST \"{{ORIGIN}}/api/fetch\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer <token>\" --data '{\"url\":\"http://169.254.169.254/latest/meta-data/\"}'"
+    },
+    {
+        id: "csrf-origin-check",
+        category: "Authentication and Session",
+        title: "CSRF Origin Enforcement",
+        description: "Verify state-changing routes enforce anti-CSRF protections and strict origin checks.",
+        checklist: [
+            "Send authenticated POST without CSRF token.",
+            "Manipulate Origin and Referer headers.",
+            "Validate SameSite and token rotation behavior."
+        ],
+        command: "curl -isk -X POST \"{{ORIGIN}}/api/profile/email\" -H \"Cookie: session=<session-cookie>\" -H \"Origin: https://attacker.example\" --data 'email=evil@example.org'"
+    },
+    {
+        id: "host-header-poisoning",
+        category: "Input Validation",
+        title: "Host Header Poisoning",
+        description: "Check trust assumptions around Host and X-Forwarded-Host usage in absolute URL generation.",
+        checklist: [
+            "Send malicious Host and X-Forwarded-Host combinations.",
+            "Inspect redirects, password reset links, and emails.",
+            "Verify reverse proxy and app routing consistency."
+        ],
+        command: "curl -isk \"{{ORIGIN}}/password/forgot\" -H \"Host: attacker.example\" -H \"X-Forwarded-Host: attacker.example\""
+    },
+    {
+        id: "cache-poisoning",
+        category: "Client-Side",
+        title: "Cache Poisoning Heuristic",
+        description: "Evaluate cache key variance and header trust to surface poisoning opportunities.",
+        checklist: [
+            "Inject unkeyed headers and compare cache behavior.",
+            "Observe cache-control, age, and vary headers.",
+            "Verify personalized pages are never cached publicly."
+        ],
+        command: "curl -isk \"{{ORIGIN}}/\" -H \"X-Forwarded-Host: poison.example\" -H \"X-Original-URL: /admin\""
+    },
+    {
         id: "rate-limit-login",
         category: "Rate Limiting",
         title: "Login Rate-Limit Verification",
@@ -341,8 +412,13 @@ const state = {
     findings: [],
     selectedToolIds: [],
     activeFilter: DEFAULT_FILTER,
+    activeQuery: "",
+    compactMode: true,
+    scanSummary: null,
     isReconRunning: false
 };
+
+let persistTimerId = 0;
 
 initializeApp();
 
@@ -358,8 +434,25 @@ function bindStaticEvents() {
     dom.exportReportBtn.addEventListener("click", handleExportReport);
     dom.clearReconLogBtn.addEventListener("click", handleClearReconLog);
     dom.copyBundleBtn.addEventListener("click", handleCopyBundle);
+    dom.copySummaryBtn.addEventListener("click", handleCopySummary);
     dom.findingForm.addEventListener("submit", handleFindingSubmit);
     dom.clearFindingsBtn.addEventListener("click", handleClearFindings);
+
+    dom.reconToolGrid.addEventListener("click", handleReconToolGridClick);
+    dom.activeToolGrid.addEventListener("click", handleActiveToolGridClick);
+    dom.activeToolGrid.addEventListener("change", handleActiveToolGridChange);
+
+    dom.activeSearchInput.addEventListener("input", () => {
+        state.activeQuery = dom.activeSearchInput.value.trim();
+        renderActiveTools();
+        persistStateDebounced();
+    });
+
+    dom.compactModeToggle.addEventListener("change", () => {
+        state.compactMode = dom.compactModeToggle.checked;
+        renderActiveTools();
+        persistState();
+    });
 
     dom.targetInput.addEventListener("change", () => {
         const normalized = normalizeTargetInput(dom.targetInput.value);
@@ -376,12 +469,15 @@ function bindStaticEvents() {
 
 function renderAll() {
     dom.targetInput.value = state.target;
+    dom.activeSearchInput.value = state.activeQuery;
+    dom.compactModeToggle.checked = state.compactMode;
     renderReconStats();
     renderReconTools();
     renderReconOutput();
     renderActiveFilters();
     renderActiveTools();
     renderCommandBundle();
+    renderScanSummary();
     renderFindings();
     updateReconControls();
 }
@@ -448,8 +544,24 @@ function hydrateState() {
         if (typeof saved.activeFilter === "string") {
             state.activeFilter = saved.activeFilter;
         }
+
+        if (typeof saved.activeQuery === "string") {
+            state.activeQuery = saved.activeQuery;
+        }
+
+        if (typeof saved.compactMode === "boolean") {
+            state.compactMode = saved.compactMode;
+        }
+
+        if (saved.scanSummary && typeof saved.scanSummary === "object") {
+            state.scanSummary = saved.scanSummary;
+        }
     } catch (error) {
         console.warn("Failed to restore persisted session:", error);
+    }
+
+    if (!state.scanSummary && (state.reconLogs.length || state.findings.length)) {
+        state.scanSummary = buildScanSummary();
     }
 }
 
@@ -461,10 +573,21 @@ function persistState() {
         reconStatus: state.reconStatus,
         findings: state.findings,
         selectedToolIds: state.selectedToolIds,
-        activeFilter: state.activeFilter
+        activeFilter: state.activeFilter,
+        activeQuery: state.activeQuery,
+        compactMode: state.compactMode,
+        scanSummary: state.scanSummary
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function persistStateDebounced() {
+    window.clearTimeout(persistTimerId);
+    persistTimerId = window.setTimeout(() => {
+        persistState();
+        persistTimerId = 0;
+    }, PERSIST_DEBOUNCE_MS);
 }
 
 function isValidReconState(status) {
@@ -546,6 +669,7 @@ async function handleRunFullRecon() {
         }
 
         appendReconLog("success", `Recon suite completed: ${successCount}/${reconModules.length} modules succeeded.`);
+        refreshScanSummary();
         showToast(`Recon complete (${successCount}/${reconModules.length}).`, "success");
     } finally {
         state.isReconRunning = false;
@@ -647,37 +771,41 @@ function renderReconTools() {
     });
 
     dom.reconToolGrid.innerHTML = cards.join("");
+}
 
-    dom.reconToolGrid.querySelectorAll("[data-run-module]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            if (state.isReconRunning) {
-                return;
-            }
+async function handleReconToolGridClick(event) {
+    const button = event.target.closest("[data-run-module]");
+    if (!button || !dom.reconToolGrid.contains(button)) {
+        return;
+    }
 
-            const target = getTargetForRecon();
-            if (!target) {
-                return;
-            }
+    if (state.isReconRunning) {
+        return;
+    }
 
-            const moduleId = button.getAttribute("data-run-module");
-            const module = reconModules.find((entry) => entry.id === moduleId);
-            if (!module) {
-                return;
-            }
+    const target = getTargetForRecon();
+    if (!target) {
+        return;
+    }
 
-            state.isReconRunning = true;
-            updateReconControls();
-            appendReconLog("detail", `Starting module: ${module.name}.`);
-            try {
-                await executeReconModule(module, target, { cache: {} });
-            } finally {
-                state.isReconRunning = false;
-                updateReconControls();
-                renderReconTools();
-                persistState();
-            }
-        });
-    });
+    const moduleId = button.getAttribute("data-run-module");
+    const module = reconModules.find((entry) => entry.id === moduleId);
+    if (!module) {
+        return;
+    }
+
+    state.isReconRunning = true;
+    updateReconControls();
+    appendReconLog("detail", `Starting module: ${module.name}.`);
+    try {
+        await executeReconModule(module, target, { cache: {} });
+        refreshScanSummary();
+    } finally {
+        state.isReconRunning = false;
+        updateReconControls();
+        renderReconTools();
+        persistState();
+    }
 }
 
 function renderReconStats() {
@@ -686,13 +814,19 @@ function renderReconStats() {
     const success = statuses.filter((item) => item.status === "success").length;
     const errors = statuses.filter((item) => item.status === "error").length;
 
-    dom.reconStats.innerHTML = [
+    const chips = [
         `<span class="stat-chip">Target: ${escapeHtml(state.target || "not set")}</span>`,
         `<span class="stat-chip">Modules run: ${completed}/${reconModules.length}</span>`,
         `<span class="stat-chip">Succeeded: ${success}</span>`,
         `<span class="stat-chip">Issues: ${errors}</span>`,
         `<span class="stat-chip">Findings: ${state.findings.length}</span>`
-    ].join("");
+    ];
+
+    if (state.scanSummary && (state.scanSummary.moduleRunCount > 0 || state.findings.length > 0)) {
+        chips.push(`<span class="stat-chip">Risk: ${escapeHtml(state.scanSummary.riskTier)} (${state.scanSummary.score}/100)</span>`);
+    }
+
+    dom.reconStats.innerHTML = chips.join("");
 }
 
 function getReconStatusLabel(status) {
@@ -724,35 +858,62 @@ function getReconStatusClass(status) {
 function appendReconLog(level, message) {
     const validLevel = level === "success" || level === "warn" || level === "error" ? level : "detail";
 
-    state.reconLogs.push({
+    const entry = {
         level: validLevel,
         message,
         timestamp: new Date().toISOString()
-    });
+    };
+
+    state.reconLogs.push(entry);
+    let requiresFullRender = false;
 
     if (state.reconLogs.length > MAX_LOG_LINES) {
         state.reconLogs = state.reconLogs.slice(-MAX_LOG_LINES);
+        requiresFullRender = true;
     }
 
-    renderReconOutput();
-    persistState();
+    if (requiresFullRender) {
+        renderReconOutput();
+    } else {
+        appendReconOutputLine(entry);
+    }
+
+    persistStateDebounced();
 }
 
 function renderReconOutput() {
     if (!state.reconLogs.length) {
         dom.reconOutput.innerHTML = "<p class=\"log-line detail\">[system] Recon output will appear here.</p>";
+        dom.reconOutput.dataset.empty = "1";
         return;
     }
 
-    dom.reconOutput.innerHTML = state.reconLogs
-        .map((entry) => {
-            const className = entry.level === "warn" ? "warn" : entry.level;
-            const time = formatTime(entry.timestamp);
-            return `<p class="log-line ${escapeAttr(className)}">[${escapeHtml(time)}] ${escapeHtml(entry.message)}</p>`;
-        })
-        .join("");
+    dom.reconOutput.dataset.empty = "0";
+    const fragment = document.createDocumentFragment();
+    state.reconLogs.forEach((entry) => {
+        fragment.appendChild(createReconLogElement(entry));
+    });
+    dom.reconOutput.replaceChildren(fragment);
 
     dom.reconOutput.scrollTop = dom.reconOutput.scrollHeight;
+}
+
+function appendReconOutputLine(entry) {
+    if (dom.reconOutput.dataset.empty === "1") {
+        dom.reconOutput.innerHTML = "";
+    }
+
+    dom.reconOutput.dataset.empty = "0";
+    dom.reconOutput.appendChild(createReconLogElement(entry));
+    dom.reconOutput.scrollTop = dom.reconOutput.scrollHeight;
+}
+
+function createReconLogElement(entry) {
+    const className = entry.level === "warn" ? "warn" : entry.level;
+    const line = document.createElement("p");
+    line.className = `log-line ${className}`;
+    line.textContent = `[${formatTime(entry.timestamp)}] ${entry.message}`;
+    return line;
 }
 
 function updateReconControls() {
@@ -763,6 +924,7 @@ function updateReconControls() {
 function handleClearReconLog() {
     state.reconLogs = [];
     renderReconOutput();
+    refreshScanSummary();
     persistState();
     showToast("Recon output cleared.", "success");
 }
@@ -793,9 +955,29 @@ function renderActiveFilters() {
 }
 
 function renderActiveTools() {
+    const query = state.activeQuery.trim().toLowerCase();
     const visibleTools = activeTools.filter((tool) => {
-        return state.activeFilter === DEFAULT_FILTER || tool.category === state.activeFilter;
+        const categoryMatch = state.activeFilter === DEFAULT_FILTER || tool.category === state.activeFilter;
+        if (!categoryMatch) {
+            return false;
+        }
+
+        if (!query) {
+            return true;
+        }
+
+        const haystack = [tool.title, tool.category, tool.description, tool.checklist.join(" ")]
+            .join(" ")
+            .toLowerCase();
+        return haystack.includes(query);
     });
+
+    dom.activeToolCount.textContent = `${visibleTools.length} visible | ${state.selectedToolIds.length} bundled`;
+
+    if (!visibleTools.length) {
+        dom.activeToolGrid.innerHTML = "<article class=\"tool-card\"><p class=\"tool-status\">No tools match the current filter or search query.</p></article>";
+        return;
+    }
 
     dom.activeToolGrid.innerHTML = visibleTools
         .map((tool) => {
@@ -804,59 +986,68 @@ function renderActiveTools() {
             const checklist = tool.checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 
             return `
-                <article class="tool-card">
+                <article class="tool-card ${state.compactMode ? "compact" : ""}">
                     <div class="tool-meta">
                         <span class="tool-tag">${escapeHtml(tool.category)}</span>
-                        <label class="tool-check">
-                            <input type="checkbox" data-tool-select="${escapeAttr(tool.id)}" ${selected ? "checked" : ""}>
-                            Bundle
-                        </label>
+                        <div class="tool-meta-actions">
+                            <button type="button" class="ghost tiny" data-tool-copy="${escapeAttr(tool.id)}">Copy</button>
+                            <label class="tool-check">
+                                <input type="checkbox" data-tool-select="${escapeAttr(tool.id)}" ${selected ? "checked" : ""}>
+                                Bundle
+                            </label>
+                        </div>
                     </div>
                     <h3>${escapeHtml(tool.title)}</h3>
-                    <p>${escapeHtml(tool.description)}</p>
-                    <ul class="tool-checklist">${checklist}</ul>
-                    <pre class="command-box">${escapeHtml(command)}</pre>
-                    <div class="tool-actions">
-                        <button type="button" class="ghost tiny" data-tool-copy="${escapeAttr(tool.id)}">Copy Command</button>
+                    <p class="tool-short">${escapeHtml(tool.description)}</p>
+                    <div class="tool-expanded">
+                        <ul class="tool-checklist">${checklist}</ul>
+                        <pre class="command-box">${escapeHtml(command)}</pre>
                     </div>
                 </article>
             `;
         })
         .join("");
+}
 
-    dom.activeToolGrid.querySelectorAll("[data-tool-copy]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            const toolId = button.getAttribute("data-tool-copy");
-            const tool = activeTools.find((entry) => entry.id === toolId);
-            if (!tool) {
-                return;
-            }
+async function handleActiveToolGridClick(event) {
+    const button = event.target.closest("[data-tool-copy]");
+    if (!button || !dom.activeToolGrid.contains(button)) {
+        return;
+    }
 
-            const copied = await copyText(materializeCommand(tool));
-            showToast(copied ? `${tool.title} copied.` : "Clipboard copy failed.", copied ? "success" : "error");
-        });
-    });
+    const toolId = button.getAttribute("data-tool-copy");
+    const tool = activeTools.find((entry) => entry.id === toolId);
+    if (!tool) {
+        return;
+    }
 
-    dom.activeToolGrid.querySelectorAll("[data-tool-select]").forEach((checkbox) => {
-        checkbox.addEventListener("change", () => {
-            const toolId = checkbox.getAttribute("data-tool-select");
-            if (!toolId) {
-                return;
-            }
+    const copied = await copyText(materializeCommand(tool));
+    showToast(copied ? `${tool.title} copied.` : "Clipboard copy failed.", copied ? "success" : "error");
+}
 
-            if (checkbox.checked) {
-                if (!state.selectedToolIds.includes(toolId)) {
-                    state.selectedToolIds.push(toolId);
-                }
-            } else {
-                state.selectedToolIds = state.selectedToolIds.filter((id) => id !== toolId);
-            }
+function handleActiveToolGridChange(event) {
+    const checkbox = event.target.closest("[data-tool-select]");
+    if (!checkbox || !dom.activeToolGrid.contains(checkbox)) {
+        return;
+    }
 
-            persistState();
-            renderCommandBundle();
-            renderReconStats();
-        });
-    });
+    const toolId = checkbox.getAttribute("data-tool-select");
+    if (!toolId) {
+        return;
+    }
+
+    if (checkbox.checked) {
+        if (!state.selectedToolIds.includes(toolId)) {
+            state.selectedToolIds.push(toolId);
+        }
+    } else {
+        state.selectedToolIds = state.selectedToolIds.filter((id) => id !== toolId);
+    }
+
+    persistState();
+    renderCommandBundle();
+    renderReconStats();
+    renderActiveTools();
 }
 
 function materializeCommand(tool) {
@@ -924,6 +1115,7 @@ function handleFindingSubmit(event) {
     persistState();
     renderFindings();
     renderReconStats();
+    refreshScanSummary();
 
     dom.findingTitle.value = "";
     dom.findingEvidence.value = "";
@@ -971,6 +1163,7 @@ function renderFindings() {
             persistState();
             renderFindings();
             renderReconStats();
+            refreshScanSummary();
         });
     });
 }
@@ -989,6 +1182,7 @@ function handleClearFindings() {
     persistState();
     renderFindings();
     renderReconStats();
+    refreshScanSummary();
     showToast("All findings cleared.", "success");
 }
 
@@ -1005,6 +1199,8 @@ function handleClearSession() {
     state.findings = [];
     state.selectedToolIds = [];
     state.activeFilter = DEFAULT_FILTER;
+    state.activeQuery = "";
+    state.scanSummary = null;
     state.isReconRunning = false;
 
     persistState();
@@ -1022,24 +1218,217 @@ function handleExportReport() {
     showToast("Markdown report exported.", "success");
 }
 
+function refreshScanSummary() {
+    state.scanSummary = buildScanSummary();
+    renderScanSummary();
+    renderReconStats();
+    persistStateDebounced();
+}
+
+function buildScanSummary() {
+    const statuses = reconModules.map((module) => {
+        const status = state.reconStatus[module.id] || {};
+        return {
+            id: module.id,
+            name: module.name,
+            status: status.status || "idle",
+            durationMs: status.durationMs || 0,
+            error: status.error || ""
+        };
+    });
+
+    const logCounts = state.reconLogs.reduce(
+        (accumulator, entry) => {
+            const level = entry.level === "warn" ? "warn" : entry.level;
+            if (level in accumulator) {
+                accumulator[level] += 1;
+            }
+            return accumulator;
+        },
+        { success: 0, warn: 0, error: 0, detail: 0 }
+    );
+
+    const moduleRunCount = statuses.filter((entry) => entry.status !== "idle").length;
+    const moduleSuccessCount = statuses.filter((entry) => entry.status === "success").length;
+    const moduleErrorCount = statuses.filter((entry) => entry.status === "error").length;
+
+    const severityCounts = collectSeverityCounts(state.findings);
+    const penalty =
+        (moduleErrorCount * 8) +
+        (logCounts.error * 4) +
+        (logCounts.warn * 1) +
+        (severityCounts.critical * 20) +
+        (severityCounts.high * 12) +
+        (severityCounts.medium * 7) +
+        (severityCounts.low * 3) +
+        (severityCounts.info * 1);
+
+    const score = Math.max(0, 100 - Math.min(95, penalty));
+    const riskTier = getRiskTier(score);
+    const notableObservations = state.reconLogs
+        .filter((entry) => /(missing|exposed|cve|failed|not detected|policy|warning)/i.test(entry.message))
+        .slice(-8)
+        .map((entry) => entry.message);
+
+    const highlights = [];
+    if (!moduleRunCount) {
+        highlights.push("Recon modules have not run yet. Start a scan to generate target-specific insights.");
+    } else {
+        highlights.push(`${moduleSuccessCount}/${reconModules.length} recon modules completed successfully.`);
+    }
+
+    if (moduleErrorCount) {
+        highlights.push(`${moduleErrorCount} module(s) returned execution issues and should be manually verified.`);
+    }
+
+    if (logCounts.warn || logCounts.error) {
+        highlights.push(`${logCounts.warn} warning log(s) and ${logCounts.error} error log(s) were observed.`);
+    }
+
+    if (severityCounts.critical || severityCounts.high) {
+        highlights.push(`High-priority findings: ${severityCounts.critical} critical and ${severityCounts.high} high.`);
+    } else if (state.findings.length) {
+        highlights.push(`Findings recorded: ${state.findings.length}, currently below high severity.`);
+    } else {
+        highlights.push("No analyst findings have been recorded yet.");
+    }
+
+    const recommendations = [
+        "Validate all recon module issues manually where browser restrictions may have affected results.",
+        "Prioritize remediation for exposed headers, CVEs, and missing email or certificate policies.",
+        "Convert selected active testing tools into a runbook and attach evidence to each finding.",
+        "Re-run this scan after changes and compare score and log deltas to verify hardening progress."
+    ];
+
+    const durationEntries = statuses.filter((entry) => entry.durationMs > 0);
+    const averageDuration = durationEntries.length
+        ? Math.round(durationEntries.reduce((total, entry) => total + entry.durationMs, 0) / durationEntries.length)
+        : 0;
+
+    return {
+        generatedAt: new Date().toISOString(),
+        target: state.target || "not set",
+        score,
+        riskTier,
+        moduleRunCount,
+        moduleSuccessCount,
+        moduleErrorCount,
+        averageDuration,
+        logCounts,
+        severityCounts,
+        highlights,
+        recommendations,
+        notableObservations,
+        moduleStatuses: statuses
+    };
+}
+
+function collectSeverityCounts(findings) {
+    return findings.reduce(
+        (accumulator, finding) => {
+            const severity = normalizeSeverity(finding.severity);
+            accumulator[severity] += 1;
+            return accumulator;
+        },
+        { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
+    );
+}
+
+function getRiskTier(score) {
+    if (score >= 85) {
+        return "Low";
+    }
+    if (score >= 70) {
+        return "Moderate";
+    }
+    if (score >= 50) {
+        return "Elevated";
+    }
+    return "High";
+}
+
+function renderScanSummary() {
+    const summary = isValidSummary(state.scanSummary) ? state.scanSummary : buildScanSummary();
+    const hasScanData = summary.moduleRunCount > 0 || state.reconLogs.length > 0 || state.findings.length > 0;
+
+    if (!hasScanData) {
+        dom.scanSummaryStats.innerHTML = `<span class="stat-chip">Scan status: waiting for first run</span>`;
+        dom.scanSummaryNarrative.innerHTML = [
+            "<p>Run a reconnaissance scan to generate an automated executive summary, risk score, and prioritized next steps.</p>",
+            "<p>After scanning, this panel will include highlights, notable observations, and recommendations.</p>"
+        ].join("");
+        dom.copySummaryBtn.disabled = true;
+        return;
+    }
+
+    dom.copySummaryBtn.disabled = false;
+    dom.scanSummaryStats.innerHTML = [
+        `<span class="stat-chip">Risk Score: ${summary.score}/100</span>`,
+        `<span class="stat-chip">Risk Tier: ${escapeHtml(summary.riskTier)}</span>`,
+        `<span class="stat-chip">Module Success: ${summary.moduleSuccessCount}/${reconModules.length}</span>`,
+        `<span class="stat-chip">Warnings: ${summary.logCounts.warn}</span>`,
+        `<span class="stat-chip">Errors: ${summary.logCounts.error}</span>`,
+        `<span class="stat-chip">Findings: ${state.findings.length}</span>`
+    ].join("");
+
+    const highlights = summary.highlights.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    const recommendations = summary.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+
+    dom.scanSummaryNarrative.innerHTML = [
+        `<p><strong>Assessment Snapshot:</strong> ${escapeHtml(summary.target)} currently rates <strong>${summary.score}/100</strong> (${escapeHtml(summary.riskTier)} risk).</p>`,
+        `<ul class="summary-list">${highlights}</ul>`,
+        `<p><strong>Recommended Next Steps:</strong></p>`,
+        `<ul class="summary-list">${recommendations}</ul>`
+    ].join("");
+}
+
+async function handleCopySummary() {
+    const summary = isValidSummary(state.scanSummary) ? state.scanSummary : buildScanSummary();
+    const text = buildSummaryText(summary);
+    const copied = await copyText(text);
+    showToast(copied ? "Scan summary copied." : "Clipboard copy failed.", copied ? "success" : "error");
+}
+
+function buildSummaryText(summary) {
+    const lines = [
+        "SecDash Automated Scan Summary",
+        `Target: ${summary.target}`,
+        `Generated: ${summary.generatedAt}`,
+        `Risk Score: ${summary.score}/100 (${summary.riskTier})`,
+        `Modules Succeeded: ${summary.moduleSuccessCount}/${reconModules.length}`,
+        `Warnings: ${summary.logCounts.warn} | Errors: ${summary.logCounts.error}`,
+        `Findings: critical=${summary.severityCounts.critical}, high=${summary.severityCounts.high}, medium=${summary.severityCounts.medium}, low=${summary.severityCounts.low}, info=${summary.severityCounts.info}`,
+        "",
+        "Highlights:"
+    ];
+
+    summary.highlights.forEach((item) => lines.push(`- ${item}`));
+    lines.push("", "Recommendations:");
+    summary.recommendations.forEach((item) => lines.push(`- ${item}`));
+    return lines.join("\n");
+}
+
 function buildMarkdownReport() {
     const generated = new Date().toISOString();
+    const summary = isValidSummary(state.scanSummary) ? state.scanSummary : buildScanSummary();
     const statuses = reconModules.map((module) => {
         const status = state.reconStatus[module.id] || {};
         return {
             name: module.name,
             status: status.status || "idle",
             lastRun: status.lastRun ? formatDateTime(status.lastRun) : "-",
-            duration: status.durationMs ? `${status.durationMs} ms` : "-"
+            duration: status.durationMs ? `${status.durationMs} ms` : "-",
+            issue: status.error || ""
         };
     });
 
     const statusTable = statuses
-        .map((row) => `| ${escapeMarkdown(row.name)} | ${escapeMarkdown(row.status)} | ${escapeMarkdown(row.lastRun)} | ${escapeMarkdown(row.duration)} |`)
+        .map((row) => `| ${escapeMarkdown(row.name)} | ${escapeMarkdown(row.status)} | ${escapeMarkdown(row.lastRun)} | ${escapeMarkdown(row.duration)} | ${escapeMarkdown(row.issue || "-")} |`)
         .join("\n");
 
     const reconLogSection = state.reconLogs.length
         ? state.reconLogs
+            .slice(-250)
             .map((entry) => `[${formatTime(entry.timestamp)}] [${entry.level.toUpperCase()}] ${entry.message}`)
             .join("\n")
         : "No recon logs captured.";
@@ -1077,22 +1466,49 @@ function buildMarkdownReport() {
             .join("\n\n")
         : "No findings recorded.";
 
+    const summaryHighlights = summary.highlights.length
+        ? summary.highlights.map((item) => `- ${escapeMarkdown(item)}`).join("\n")
+        : "- No highlights available.";
+
+    const summaryRecommendations = summary.recommendations.length
+        ? summary.recommendations.map((item) => `- ${escapeMarkdown(item)}`).join("\n")
+        : "- No recommendations available.";
+
+    const notableSection = summary.notableObservations.length
+        ? summary.notableObservations.map((item) => `- ${escapeMarkdown(item)}`).join("\n")
+        : "- No notable log observations captured.";
+
     return [
         "# SecDash Assessment Report",
         "",
         `Generated: ${generated}`,
         `Target: ${state.target || "not set"}`,
+        `Automated Risk Score: ${summary.score}/100 (${summary.riskTier})`,
         "",
         "## Scope and Authorization",
         "This report is intended only for authorized ethical security testing engagements.",
+        "",
+        "## Executive Summary",
+        `- Risk score: ${summary.score}/100`,
+        `- Risk tier: ${summary.riskTier}`,
+        `- Recon modules completed: ${summary.moduleSuccessCount}/${reconModules.length}`,
+        `- Recon warnings/errors: ${summary.logCounts.warn}/${summary.logCounts.error}`,
+        `- Findings recorded: ${state.findings.length}`,
+        `- Average module duration: ${summary.averageDuration} ms`,
+        "",
+        "### Highlights",
+        summaryHighlights,
+        "",
+        "### Notable Observations",
+        notableSection,
         "",
         "## Reconnaissance Summary",
         `- Modules configured: ${reconModules.length}`,
         `- Findings recorded: ${state.findings.length}`,
         `- Active tool commands selected: ${selectedTools.length}`,
         "",
-        "| Module | Status | Last Run | Duration |",
-        "| --- | --- | --- | --- |",
+        "| Module | Status | Last Run | Duration | Issue |",
+        "| --- | --- | --- | --- | --- |",
         statusTable,
         "",
         "## Reconnaissance Logs",
@@ -1107,10 +1523,24 @@ function buildMarkdownReport() {
         findingsSection,
         "",
         "## Recommendations",
-        "- Retest all fixed issues and attach proof of closure.",
-        "- Prioritize fixes by exploitability and business impact.",
-        "- Keep evidence artifacts (requests, responses, screenshots) with each finding."
+        summaryRecommendations,
+        "",
+        "## Retest Checklist",
+        "- [ ] Re-run full recon and compare module outcomes.",
+        "- [ ] Re-validate all previously exploitable paths with fixed builds.",
+        "- [ ] Confirm logging and monitoring alerts trigger for malicious patterns.",
+        "- [ ] Attach new evidence proving closure for each finding."
     ].join("\n");
+}
+
+function isValidSummary(candidate) {
+    return Boolean(
+        candidate &&
+        typeof candidate === "object" &&
+        typeof candidate.score === "number" &&
+        Array.isArray(candidate.highlights) &&
+        Array.isArray(candidate.recommendations)
+    );
 }
 
 function showToast(message, type) {
@@ -1454,6 +1884,87 @@ async function runHistoricalSurface(context) {
         const status = row[2] || "unknown-status";
         context.log("detail", `${timestamp} | ${status} | ${endpoint}`);
     });
+}
+
+async function runRobotsAndSitemap(context) {
+    if (context.target.isIp) {
+        context.log("warn", "Robots and sitemap discovery expects a domain target.");
+        return;
+    }
+
+    const robotsUrl = `${context.target.origin}/robots.txt`;
+    try {
+        const response = await fetchWithTimeout(robotsUrl, {}, RECON_TIMEOUT_MS);
+        if (response.status === 404) {
+            context.log("warn", "robots.txt not found.");
+            return;
+        }
+
+        if (!response.ok) {
+            context.log("warn", `robots.txt probe returned HTTP ${response.status}.`);
+            return;
+        }
+
+        const text = await response.text();
+        const lines = text.split("\n").map((line) => line.trim());
+        const disallow = lines
+            .filter((line) => /^disallow:/i.test(line))
+            .map((line) => line.replace(/^disallow:\s*/i, "").trim())
+            .filter(Boolean);
+        const sitemaps = lines
+            .filter((line) => /^sitemap:/i.test(line))
+            .map((line) => line.replace(/^sitemap:\s*/i, "").trim())
+            .filter(Boolean);
+
+        context.log("success", `robots.txt reachable (${robotsUrl}).`);
+        context.log(disallow.length ? "warn" : "detail", disallow.length ? `Disallow entries sample: ${disallow.slice(0, 8).join(", ")}` : "No Disallow entries parsed.");
+        context.log(sitemaps.length ? "success" : "warn", sitemaps.length ? `Sitemap references: ${sitemaps.join(", ")}` : "No sitemap entries in robots.txt.");
+    } catch {
+        context.log("warn", "robots.txt check blocked by browser policy or network restrictions.");
+    }
+}
+
+async function runSecurityTxtPresence(context) {
+    if (context.target.isIp) {
+        context.log("warn", "security.txt checks are intended for domain targets.");
+        return;
+    }
+
+    const candidates = [
+        `${context.target.origin}/.well-known/security.txt`,
+        `${context.target.origin}/security.txt`
+    ];
+
+    let fileText = "";
+    let matchedUrl = "";
+
+    for (const url of candidates) {
+        try {
+            const response = await fetchWithTimeout(url, {}, RECON_TIMEOUT_MS);
+            if (response.ok) {
+                fileText = await response.text();
+                matchedUrl = url;
+                break;
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    if (!fileText) {
+        context.log("warn", "security.txt not detected on common locations.");
+        return;
+    }
+
+    const lines = fileText.split("\n").map((line) => line.trim()).filter(Boolean);
+    const contact = lines.find((line) => /^contact:/i.test(line));
+    const policy = lines.find((line) => /^policy:/i.test(line));
+    const expires = lines.find((line) => /^expires:/i.test(line));
+
+    context.log("success", `security.txt discovered at ${matchedUrl}`);
+    context.log(contact ? "success" : "warn", contact ? `Contact channel: ${contact.replace(/^contact:\s*/i, "")}` : "No Contact field found.");
+    context.log(policy ? "detail" : "warn", policy ? `Policy URL: ${policy.replace(/^policy:\s*/i, "")}` : "No Policy field found.");
+    context.log(expires ? "detail" : "warn", expires ? `Disclosure metadata expires: ${expires.replace(/^expires:\s*/i, "")}` : "No Expires field found.");
 }
 
 async function runPortExposure(context) {
