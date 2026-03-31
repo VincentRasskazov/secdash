@@ -3,94 +3,818 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecDash | V6 Terminal Velocity</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>SecDash | Ethical Web Security Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #020617; color: #10b981; font-family: 'Consolas', 'Courier New', monospace; }
-        .glass-panel { background: #0f172a; border: 1px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.1); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #020617; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
-        .payload-btn { background: #1e3a8a; color: #93c5fd; transition: all 0.2s; border: 1px solid #1d4ed8; }
-        .payload-btn:hover { background: #2563eb; color: #fff; box-shadow: 0 0 10px rgba(37, 99, 235, 0.8); }
-        .god-btn { background: #7f1d1d; color: #fca5a5; transition: all 0.2s; border: 1px solid #ef4444; }
-        .god-btn:hover { background: #ef4444; color: #fff; box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); transform: scale(1.02); }
+        :root {
+            --bg: #f5f7fb;
+            --bg-alt: #ebf0f8;
+            --surface: rgba(255, 255, 255, 0.78);
+            --surface-strong: #ffffff;
+            --stroke: #d1dded;
+            --text: #12304f;
+            --muted: #4c6788;
+            --accent: #0675d8;
+            --accent-soft: #cfe8ff;
+            --ok: #1f8f5f;
+            --warn: #bc7d1b;
+            --error: #b33a3a;
+            --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+            --sans: "Sora", "Segoe UI", sans-serif;
+            --shadow: 0 18px 42px rgba(18, 48, 79, 0.13);
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+        }
+
+        body {
+            font-family: var(--sans);
+            color: var(--text);
+            background: linear-gradient(130deg, #f7f4eb 0%, #eef8ff 38%, #f5f7fb 100%);
+        }
+
+        .bg-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 12% 22%, rgba(255, 176, 82, 0.18), transparent 35%),
+                radial-gradient(circle at 86% 14%, rgba(6, 117, 216, 0.18), transparent 40%),
+                radial-gradient(circle at 80% 78%, rgba(31, 143, 95, 0.12), transparent 32%),
+                linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35));
+            z-index: 0;
+        }
+
+        .page-shell {
+            position: relative;
+            z-index: 1;
+            width: min(1400px, calc(100vw - 2rem));
+            margin: 1rem auto 2rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 1rem;
+            animation: rise 420ms ease;
+        }
+
+        .hero-copy,
+        .compliance-card,
+        .panel {
+            border: 1px solid var(--stroke);
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-copy {
+            padding: 1.35rem 1.5rem;
+        }
+
+        .eyebrow {
+            margin: 0;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 0.45rem 0 0;
+            font-size: clamp(1.8rem, 3.2vw, 2.8rem);
+            line-height: 1.05;
+        }
+
+        .subtitle {
+            margin: 0.8rem 0 0;
+            color: var(--muted);
+            max-width: 58ch;
+            line-height: 1.45;
+        }
+
+        .compliance-card {
+            padding: 1.2rem 1.3rem;
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .compliance-card h2 {
+            margin: 0;
+            font-size: 1rem;
+            color: #0f4e84;
+        }
+
+        .compliance-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .compliance-list {
+            margin: 0;
+            padding-left: 1rem;
+            font-size: 0.9rem;
+            color: #225175;
+            display: grid;
+            gap: 0.25rem;
+        }
+
+        .panel {
+            padding: 1.1rem 1.2rem;
+            animation: rise 520ms ease;
+        }
+
+        .control-strip {
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .target-row {
+            display: flex;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-size: 0.87rem;
+            color: var(--muted);
+            display: grid;
+            gap: 0.35rem;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+            font: inherit;
+        }
+
+        input,
+        select,
+        textarea {
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 0.66rem 0.72rem;
+            background: var(--surface-strong);
+            color: var(--text);
+        }
+
+        #targetInput {
+            flex: 1 1 420px;
+            min-width: 240px;
+            font-family: var(--mono);
+            letter-spacing: 0.01em;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: var(--mono);
+            line-height: 1.45;
+        }
+
+        button {
+            border: 0;
+            border-radius: 12px;
+            padding: 0.66rem 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+            background: var(--accent);
+            cursor: pointer;
+            transition: transform 150ms ease, box-shadow 160ms ease, background 160ms ease;
+            box-shadow: 0 8px 20px rgba(6, 117, 216, 0.23);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(6, 117, 216, 0.3);
+            background: #0668be;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+        }
+
+        .secondary {
+            background: #1e8f72;
+            box-shadow: 0 8px 18px rgba(30, 143, 114, 0.2);
+        }
+
+        .secondary:hover {
+            background: #16785f;
+            box-shadow: 0 10px 22px rgba(30, 143, 114, 0.28);
+        }
+
+        .ghost {
+            background: #ffffff;
+            color: #0f4e84;
+            border: 1px solid var(--stroke);
+            box-shadow: none;
+        }
+
+        .ghost:hover {
+            background: #f6fbff;
+            box-shadow: 0 6px 16px rgba(18, 48, 79, 0.12);
+        }
+
+        .hint {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .section-block {
+            display: grid;
+            gap: 1rem;
+        }
+
+        #reconSection {
+            grid-column: span 7;
+        }
+
+        #activeSection {
+            grid-column: span 5;
+        }
+
+        #reportSection {
+            grid-column: span 12;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 1rem;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--stroke);
+            padding-bottom: 0.75rem;
+        }
+
+        .section-header h2,
+        .section-header h3 {
+            margin: 0;
+        }
+
+        .section-header p {
+            margin: 0.3rem 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+            max-width: 56ch;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-chip {
+            background: var(--accent-soft);
+            border: 1px solid #acd3f8;
+            color: #0f4e84;
+            padding: 0.42rem 0.66rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .tool-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .active-grid {
+            max-height: 640px;
+            overflow-y: auto;
+            padding-right: 0.3rem;
+        }
+
+        .tool-card {
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            background: var(--surface-strong);
+            padding: 0.8rem;
+            display: grid;
+            gap: 0.55rem;
+            align-content: start;
+        }
+
+        .tool-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .tool-tag {
+            display: inline-flex;
+            padding: 0.2rem 0.54rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: #edf6ff;
+            color: #1261a6;
+            border: 1px solid #cce4ff;
+        }
+
+        .tool-card h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .tool-card p {
+            margin: 0;
+            font-size: 0.87rem;
+            color: var(--muted);
+            line-height: 1.42;
+        }
+
+        .tool-status {
+            margin: 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .status-running {
+            color: var(--warn);
+            font-weight: 700;
+        }
+
+        .status-success {
+            color: var(--ok);
+            font-weight: 700;
+        }
+
+        .status-error {
+            color: var(--error);
+            font-weight: 700;
+        }
+
+        .console-wrap {
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            background: #0f2c48;
+            overflow: hidden;
+        }
+
+        .console-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.58rem 0.78rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+            color: #ebf8ff;
+        }
+
+        .console-head h3 {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .tiny {
+            font-size: 0.74rem;
+            padding: 0.35rem 0.56rem;
+            border-radius: 9px;
+        }
+
+        .console-output {
+            height: 300px;
+            overflow: auto;
+            padding: 0.78rem;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            line-height: 1.52;
+            color: #e5f2ff;
+            background: linear-gradient(180deg, #123a61 0%, #082844 100%);
+        }
+
+        .log-line {
+            margin: 0 0 0.22rem;
+            opacity: 0;
+            animation: logIn 260ms ease forwards;
+        }
+
+        .log-line.success {
+            color: #93f0c4;
+        }
+
+        .log-line.warn {
+            color: #ffe4a8;
+        }
+
+        .log-line.error {
+            color: #ffb9b9;
+        }
+
+        .log-line.detail {
+            color: #d8eaff;
+        }
+
+        .chip-row {
+            display: flex;
+            gap: 0.44rem;
+            flex-wrap: wrap;
+        }
+
+        .chip-filter {
+            border: 1px solid var(--stroke);
+            background: #ffffff;
+            color: #27557d;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            padding: 0.4rem 0.7rem;
+            box-shadow: none;
+        }
+
+        .chip-filter.active {
+            background: #0f4e84;
+            color: #ffffff;
+            border-color: #0f4e84;
+        }
+
+        .tool-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.34rem;
+            color: #285478;
+            font-size: 0.76rem;
+            font-weight: 600;
+        }
+
+        .tool-check input {
+            accent-color: #0f4e84;
+        }
+
+        .tool-checklist {
+            margin: 0;
+            padding-left: 1rem;
+            display: grid;
+            gap: 0.18rem;
+            color: #335e84;
+            font-size: 0.8rem;
+        }
+
+        .command-box {
+            margin: 0;
+            border: 1px solid #cde3f7;
+            background: #f7fbff;
+            color: #0f3f6b;
+            border-radius: 12px;
+            padding: 0.56rem;
+            font-size: 0.77rem;
+            line-height: 1.42;
+            overflow-x: auto;
+            font-family: var(--mono);
+        }
+
+        .tool-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tool-actions button {
+            font-size: 0.76rem;
+            padding: 0.4rem 0.62rem;
+            border-radius: 9px;
+        }
+
+        .bundle-panel {
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            background: #ffffff;
+            padding: 0.8rem;
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .bundle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        #commandBundle {
+            min-height: 160px;
+        }
+
+        .finding-form {
+            display: grid;
+            gap: 0.68rem;
+        }
+
+        .input-grid {
+            display: grid;
+            gap: 0.62rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .findings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            padding-top: 0.2rem;
+        }
+
+        .findings-header h3 {
+            margin: 0;
+        }
+
+        .findings-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .finding-card {
+            border: 1px solid var(--stroke);
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 0.7rem;
+            display: grid;
+            gap: 0.42rem;
+        }
+
+        .finding-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 0.6rem;
+        }
+
+        .severity {
+            border-radius: 999px;
+            padding: 0.2rem 0.56rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .sev-critical {
+            background: #ffe0e0;
+            color: #9e2828;
+        }
+
+        .sev-high {
+            background: #ffe9d3;
+            color: #9d4d0f;
+        }
+
+        .sev-medium {
+            background: #fff5d3;
+            color: #865f0b;
+        }
+
+        .sev-low {
+            background: #dff5e8;
+            color: #176c47;
+        }
+
+        .sev-info {
+            background: #deefff;
+            color: #0f4e84;
+        }
+
+        .toast {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            min-width: 220px;
+            max-width: 360px;
+            padding: 0.65rem 0.85rem;
+            border-radius: 12px;
+            border: 1px solid #9dcaf2;
+            background: #e9f5ff;
+            color: #0f4e84;
+            box-shadow: 0 12px 26px rgba(15, 78, 132, 0.16);
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            transition: opacity 180ms ease, transform 180ms ease;
+            z-index: 9;
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background: #e3f8ee;
+            color: #166947;
+            border-color: #8fdbb6;
+        }
+
+        .toast.error {
+            background: #fde9e9;
+            color: #9e2828;
+            border-color: #f4b5b5;
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes logIn {
+            from {
+                opacity: 0;
+                transform: translateX(-6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+
+            #reconSection,
+            #activeSection,
+            #reportSection {
+                grid-column: span 12;
+            }
+
+            .active-grid {
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 850px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-shell {
+                width: min(1400px, calc(100vw - 1rem));
+            }
+
+            .panel,
+            .hero-copy,
+            .compliance-card {
+                padding: 0.9rem;
+            }
+        }
     </style>
 </head>
-<body class="min-h-screen p-6">
+<body>
+    <div class="bg-layer" aria-hidden="true"></div>
 
-    <div class="max-w-screen-2xl mx-auto">
-        <header class="mb-6 flex flex-col md:flex-row justify-between items-end border-b border-blue-900 pb-4 gap-4">
-            <div>
-                <h1 class="text-4xl font-bold text-blue-500 tracking-tight text-shadow">SecDash <span class="text-sm text-yellow-400 font-bold bg-yellow-950/50 px-2 py-1 rounded border border-yellow-700">v6.0 TERMINAL VELOCITY</span></h1>
-                <p class="text-slate-400 text-sm mt-2">Maximum Client-Side Reconnaissance</p>
-            </div>
-            
-            <div class="w-full md:w-2/3 flex gap-2">
-                <input type="text" id="targetInput" placeholder="Target (e.g., bugcrowd.com)" class="w-full bg-[#020617] border border-blue-900 rounded px-3 py-2 text-blue-300 focus:outline-none focus:border-blue-500 font-bold tracking-wider">
-                <button onclick="runRecon()" class="bg-blue-700 hover:bg-blue-600 text-white px-6 py-2 rounded font-bold transition shadow-[0_0_15px_rgba(29,78,216,0.8)]">ENGAGE</button>
-                <button onclick="exportReport()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-4 py-2 rounded transition">Export .txt</button>
-            </div>
+    <div class="page-shell">
+        <header class="hero">
+            <section class="hero-copy">
+                <p class="eyebrow">Authorized Web App Testing Workspace</p>
+                <h1>SecDash</h1>
+                <p class="subtitle">Advanced dashboard for ethical hackers running reconnaissance, planning active tests, and building readable security reports from one workspace.</p>
+            </section>
+            <aside class="compliance-card" aria-label="Authorization guidance">
+                <h2>Scope Guardrails</h2>
+                <p>Run only against applications where you have explicit written permission.</p>
+                <ul class="compliance-list">
+                    <li>Respect program scope and rate limits.</li>
+                    <li>Avoid destructive tests in production unless approved.</li>
+                    <li>Collect reproducible evidence for every finding.</li>
+                </ul>
+            </aside>
         </header>
 
-        <div id="copyToast" class="fixed top-4 right-4 bg-green-900 border border-green-500 text-green-300 px-4 py-2 rounded shadow-[0_0_20px_rgba(16,185,129,0.5)] hidden z-50 font-bold">
-            [+] Payload Copied!
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <div class="glass-panel p-5 rounded-lg lg:col-span-5 flex flex-col h-[880px]">
-                <h2 class="text-lg text-blue-400 font-bold mb-3 border-b border-blue-900 pb-2 flex justify-between">
-                    <span>Automated Recon</span>
-                    <span class="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded animate-pulse">LIVE</span>
-                </h2>
-                <div id="reconResults" class="flex-grow bg-[#050b14] p-4 rounded text-xs overflow-y-auto text-slate-300 custom-scrollbar whitespace-pre-wrap font-mono leading-relaxed border border-slate-800">System online. Awaiting coordinates...</div>
+        <section class="panel control-strip" aria-label="Target controls">
+            <label for="targetInput">Target Hostname or URL</label>
+            <div class="target-row">
+                <input id="targetInput" type="text" placeholder="example.com or https://example.com">
+                <button id="runReconBtn" type="button">Run Full Recon</button>
+                <button id="clearSessionBtn" class="secondary" type="button">Clear Session</button>
+                <button id="exportReportBtn" class="ghost" type="button">Export Markdown Report</button>
             </div>
+            <p class="hint">The recon engine is passive by default. Active testing commands are generated separately so you stay in control.</p>
+        </section>
 
-            <div class="glass-panel p-5 rounded-lg lg:col-span-7 flex flex-col h-[880px]">
-                <div class="flex justify-between items-center mb-4 border-b border-blue-900 pb-3">
-                    <h2 class="text-lg text-blue-400 font-bold">Console Injection Arsenal</h2>
-                    <button onclick="copyPayload('godMode')" class="god-btn px-6 py-2 rounded text-sm font-bold tracking-widest">🔥 COPY GOD MODE v3 🔥</button>
-                </div>
-                
-                <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-6">
-                    
-                    <div class="space-y-2">
-                        <h3 class="text-indigo-400 text-sm font-bold bg-indigo-950/50 py-1 px-2 rounded border border-indigo-900">Tech Profiling</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Run Wappalyzer Clone</span><button onclick="copyPayload('techProfiler')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">React/Redux State Dump</span><button onclick="copyPayload('reduxState')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract Subdomains</span><button onclick="copyPayload('subdomains')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Extract API Endpoints</span><button onclick="copyPayload('apiEndpoints')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h3 class="text-emerald-400 text-sm font-bold bg-emerald-950/50 py-1 px-2 rounded border border-emerald-900">State & Storage</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump IndexedDB</span><button onclick="copyPayload('indexedDB')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump Local/Session Storage</span><button onclick="copyPayload('storage')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Dump Cookies</span><button onclick="copyPayload('cookies')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hunt for JWTs</span><button onclick="copyPayload('jwtHunter')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h3 class="text-amber-400 text-sm font-bold bg-amber-950/50 py-1 px-2 rounded border border-amber-900">Traffic & Event Hooking</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">PostMessage Tracker </span><button onclick="copyPayload('postMessage')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Hook Fetch/XHR</span><button onclick="copyPayload('xhrHook')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Monitor WebSockets</span><button onclick="copyPayload('wsMonitor')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Bypass Copy/Right-Click</span><button onclick="copyPayload('enableRightClick')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h3 class="text-rose-400 text-sm font-bold bg-rose-950/50 py-1 px-2 rounded border border-rose-900">Vulnerability Scanners</h3>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">DOM XSS Sinks</span><button onclick="copyPayload('xssSinks')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Regex Internal IP Finder</span><button onclick="copyPayload('internalIPs')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Regex API Keys/Emails</span><button onclick="copyPayload('sensitiveData')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Prototype Pollution</span><button onclick="copyPayload('prototypePollution')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
-                        <div class="flex justify-between items-center border-b border-slate-800 py-1"><span class="text-slate-300 text-xs">Local Storage Poisoner</span><button onclick="copyPayload('lsPoison')" class="payload-btn px-2 py-1 rounded text-xs">Copy</button></div>
+        <main class="layout">
+            <section class="panel section-block" id="reconSection" aria-labelledby="reconTitle">
+                <div class="section-header">
+                    <div>
+                        <h2 id="reconTitle">Reconnaissance</h2>
+                        <p>Run individual modules or the full suite to map infrastructure, exposure, and historical surface area.</p>
                     </div>
                 </div>
-            </div>
-        </div>
+                <div class="stats-row" id="reconStats" aria-live="polite"></div>
+                <div class="tool-grid" id="reconToolGrid"></div>
+                <div class="console-wrap">
+                    <div class="console-head">
+                        <h3>Recon Console</h3>
+                        <button id="clearReconLogBtn" class="ghost tiny" type="button">Clear Output</button>
+                    </div>
+                    <div class="console-output" id="reconOutput" aria-live="polite"></div>
+                </div>
+            </section>
+
+            <section class="panel section-block" id="activeSection" aria-labelledby="activeTitle">
+                <div class="section-header">
+                    <div>
+                        <h2 id="activeTitle">Active Testing</h2>
+                        <p>Curated commands and checklists for input validation, authentication, API abuse resistance, and business logic testing.</p>
+                    </div>
+                </div>
+                <div class="chip-row" id="activeCategoryFilters"></div>
+                <div class="tool-grid active-grid" id="activeToolGrid"></div>
+                <div class="bundle-panel">
+                    <div class="bundle-header">
+                        <h3>Command Bundle</h3>
+                        <button id="copyBundleBtn" class="secondary" type="button">Copy Bundle</button>
+                    </div>
+                    <textarea id="commandBundle" readonly></textarea>
+                </div>
+            </section>
+
+            <section class="panel section-block" id="reportSection" aria-labelledby="reportTitle">
+                <div class="section-header">
+                    <div>
+                        <h2 id="reportTitle">Findings and Reporting</h2>
+                        <p>Capture evidence as you test, prioritize by severity, and export a markdown report ready for disclosure workflows.</p>
+                    </div>
+                </div>
+
+                <form id="findingForm" class="finding-form">
+                    <div class="input-grid">
+                        <label for="findingTitle">Finding Title
+                            <input id="findingTitle" type="text" required placeholder="Stored XSS in profile bio">
+                        </label>
+
+                        <label for="findingSeverity">Severity
+                            <select id="findingSeverity">
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="low">Low</option>
+                                <option value="info">Informational</option>
+                            </select>
+                        </label>
+
+                        <label for="findingEvidence">Evidence URL
+                            <input id="findingEvidence" type="url" placeholder="https://target.example/path">
+                        </label>
+                    </div>
+
+                    <label for="findingNotes">Notes
+                        <textarea id="findingNotes" placeholder="Impact, reproduction steps, and recommended remediation."></textarea>
+                    </label>
+
+                    <button type="submit">Add Finding</button>
+                </form>
+
+                <div class="findings-header">
+                    <h3>Tracked Findings</h3>
+                    <button id="clearFindingsBtn" class="ghost" type="button">Clear Findings</button>
+                </div>
+
+                <div id="findingsList" class="findings-list" aria-live="polite"></div>
+            </section>
+        </main>
     </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="app.js"></script>
 </body>

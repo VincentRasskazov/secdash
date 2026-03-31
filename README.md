@@ -1,40 +1,129 @@
-# SecDash v6.0 (Terminal Velocity)
+# SecDash
 
-**Made with AI.** SecDash is a 100% static, client-side reconnaissance and injection workbench designed for bug bounty hunters and security analysts. It operates entirely without a backend, utilizing open APIs for passive external OSINT and generating advanced JavaScript payloads for direct DevTools injection to perform in-situ application analysis.
+SecDash is a static, browser-based dashboard for authorized web application security testing.
 
-## Core Features
+It is designed for readability and operational flow:
 
-* **Automated OSINT Engine:** Chains public APIs (NetworkCalc, HackerTarget, Shodan) to gather DNS records, WHOIS data, SSL/TLS certificates, open ports, CVEs, and historical Wayback Machine endpoints without touching the target's origin server.
-* **DevTools Payload Arsenal:** A massive clipboard library of advanced client-side scripts. Paste these into the target's DevTools Console (F12) to bypass CORS and extract IndexedDB data, hook `fetch()`/`WebSocket` traffic, sniff `postMessage` events, and hunt for DOM XSS sinks.
-* **God Mode V3:** A single-click payload that generates a comprehensive client-side audit report directly in the target's console.
+- Passive reconnaissance modules to map exposure quickly.
+- Active testing toolcards organized by category.
+- Findings tracking with severity and evidence.
+- One-click markdown report export.
 
-## Deployment
+No backend is required.
 
-Zero build steps. Zero dependencies.
+## Ethical Use
 
-1. Clone or fork this repository.
-2. Enable GitHub Pages in your repository settings (point to the `main` branch).
-3. Access your live instance. (Alternatively, just open `index.html` locally in your browser).
+Use this project only for targets where you have explicit written permission.
 
-## Usage Guide
+- Respect scope boundaries and legal constraints.
+- Avoid destructive testing unless it is approved.
+- Treat this dashboard as an assistant, not a replacement for analyst judgment.
 
-1. Enter your target domain (e.g., `example.com`) and click **ENGAGE**.
-2. Review the automated infrastructure data in the left terminal.
-3. Select a payload from the right-hand arsenal and click **Copy**.
-4. Open a new tab, navigate to the target web application, open Developer Tools (F12), and paste the payload into the Console.
+## What Is Included
 
-## Disclaimer
+### Reconnaissance Section
 
-**Authorized Use Only.** SecDash is built for educational purposes and authorized security research. Do not use this tool against infrastructure or applications you do not have explicit, written permission to test. The developers assume no liability for misuse.
+The recon panel supports full-run execution and per-module execution with status tracking, durations, and a live log console.
+
+Current module coverage:
+
+1. DNS Profile
+2. WHOIS Snapshot
+3. TLS Certificate Review
+4. Subdomain Intelligence
+5. Historical Surface (Wayback sample)
+6. Port and CVE Exposure (Shodan InternetDB)
+7. HTTP Header Posture
+8. DNS Policy Signals (MX/NS/CAA/DNSKEY)
+
+### Active Testing Section
+
+The active testing panel provides categorized tools with:
+
+- Objective-oriented descriptions
+- Analyst checklists
+- Command templates with target substitution
+- Per-tool copy action
+- Multi-tool runbook bundle builder
+
+Categories currently include:
+
+1. Input Validation
+2. Authentication and Session
+3. Authorization
+4. API Security
+5. Rate Limiting
+6. File Upload
+7. Business Logic
+8. Client-Side
+
+### Findings and Reporting Section
+
+The reporting panel allows you to:
+
+1. Add findings with severity, evidence URL, and notes
+2. Track findings in-session
+3. Export a markdown report including:
+	- recon status summary
+	- recon logs
+	- selected active testing runbook commands
+	- findings and recommendations
+
+## Project Structure
+
+- `index.html`: UI layout, styles, and section structure
+- `app.js`: app state, recon engine, active tool registry, findings manager, report exporter
+- `LICENSE`: MIT license
+
+## Run Locally
+
+No build step is required.
+
+1. Clone the repository.
+2. Open `index.html` in a browser.
+
+Optional: host with GitHub Pages from the `main` branch.
+
+## Usage Workflow
+
+1. Enter a target domain or URL.
+2. Run full recon or execute individual recon modules.
+3. Review module status and the recon console output.
+4. Filter active testing tools by category and select tools for a command bundle.
+5. Record findings as evidence is gathered.
+6. Export markdown report for disclosure or internal tracking.
+
+## Architecture Notes
+
+`app.js` is organized around registries and render functions to avoid monolithic logic:
+
+- Recon modules are defined in a single module registry.
+- Active testing tools are defined in a single tool registry.
+- Rendering is segmented by section (recon, active tools, findings, report bundle).
+- Session state persists via `localStorage`.
+
+This keeps the code readable and makes adding new modules predictable.
+
+## Extending SecDash
+
+### Add a New Recon Module
+
+1. Add a new object to the `reconModules` array in `app.js`.
+2. Implement the module runner function.
+3. Use the shared context helpers (`fetchJson`, `fetchText`, `log`, cache).
+
+### Add a New Active Testing Tool
+
+1. Add a new object to the `activeTools` array in `app.js`.
+2. Provide `category`, `title`, `description`, `checklist`, and `command`.
+3. Use `{{TARGET}}` and `{{ORIGIN}}` placeholders where useful.
+
+## Known Limitations
+
+- Browser CORS policy can block some third-party API responses depending on provider changes.
+- Public API availability can vary and may enforce request limits.
+- Command templates are generic and must be adapted to target-specific routes and parameters.
 
 ## License
 
-This project is licensed under the MIT License.
-
-Copyright (c) 2026 
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+This project is licensed under the MIT License. See `LICENSE`.
