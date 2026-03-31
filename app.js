@@ -12,6 +12,11 @@ const dom = {
     runReconBtn: document.getElementById("runReconBtn"),
     clearSessionBtn: document.getElementById("clearSessionBtn"),
     exportReportBtn: document.getElementById("exportReportBtn"),
+    workspaceTabs: document.getElementById("workspaceTabs"),
+    workspaceLayout: document.getElementById("workspaceLayout"),
+    reconSection: document.getElementById("reconSection"),
+    activeSection: document.getElementById("activeSection"),
+    reportSection: document.getElementById("reportSection"),
     reconStats: document.getElementById("reconStats"),
     reconToolGrid: document.getElementById("reconToolGrid"),
     clearReconLogBtn: document.getElementById("clearReconLogBtn"),
@@ -19,13 +24,16 @@ const dom = {
     activeCategoryFilters: document.getElementById("activeCategoryFilters"),
     activeSearchInput: document.getElementById("activeSearchInput"),
     compactModeToggle: document.getElementById("compactModeToggle"),
+    activeShowMoreBtn: document.getElementById("activeShowMoreBtn"),
     activeToolCount: document.getElementById("activeToolCount"),
     activeToolGrid: document.getElementById("activeToolGrid"),
     commandBundle: document.getElementById("commandBundle"),
     copyBundleBtn: document.getElementById("copyBundleBtn"),
     copySummaryBtn: document.getElementById("copySummaryBtn"),
+    copyDetailedReportBtn: document.getElementById("copyDetailedReportBtn"),
     scanSummaryStats: document.getElementById("scanSummaryStats"),
     scanSummaryNarrative: document.getElementById("scanSummaryNarrative"),
+    scanReportPreview: document.getElementById("scanReportPreview"),
     findingForm: document.getElementById("findingForm"),
     findingTitle: document.getElementById("findingTitle"),
     findingSeverity: document.getElementById("findingSeverity"),
@@ -414,6 +422,8 @@ const state = {
     activeFilter: DEFAULT_FILTER,
     activeQuery: "",
     compactMode: true,
+    activeDisplayLimit: 10,
+    activePane: "reconSection",
     scanSummary: null,
     isReconRunning: false
 };
@@ -435,15 +445,19 @@ function bindStaticEvents() {
     dom.clearReconLogBtn.addEventListener("click", handleClearReconLog);
     dom.copyBundleBtn.addEventListener("click", handleCopyBundle);
     dom.copySummaryBtn.addEventListener("click", handleCopySummary);
+    dom.copyDetailedReportBtn.addEventListener("click", handleCopyDetailedReport);
     dom.findingForm.addEventListener("submit", handleFindingSubmit);
     dom.clearFindingsBtn.addEventListener("click", handleClearFindings);
 
+    dom.workspaceTabs.addEventListener("click", handleWorkspaceTabClick);
     dom.reconToolGrid.addEventListener("click", handleReconToolGridClick);
     dom.activeToolGrid.addEventListener("click", handleActiveToolGridClick);
     dom.activeToolGrid.addEventListener("change", handleActiveToolGridChange);
+    dom.activeShowMoreBtn.addEventListener("click", handleActiveShowMore);
 
     dom.activeSearchInput.addEventListener("input", () => {
         state.activeQuery = dom.activeSearchInput.value.trim();
+        state.activeDisplayLimit = 10;
         renderActiveTools();
         persistStateDebounced();
     });
@@ -471,6 +485,7 @@ function renderAll() {
     dom.targetInput.value = state.target;
     dom.activeSearchInput.value = state.activeQuery;
     dom.compactModeToggle.checked = state.compactMode;
+    renderWorkspacePane();
     renderReconStats();
     renderReconTools();
     renderReconOutput();
@@ -478,8 +493,64 @@ function renderAll() {
     renderActiveTools();
     renderCommandBundle();
     renderScanSummary();
+    updateDetailedReportPreview();
     renderFindings();
     updateReconControls();
+}
+
+function renderWorkspacePane() {
+    const paneIds = ["reconSection", "activeSection", "reportSection"];
+    if (!paneIds.includes(state.activePane)) {
+        state.activePane = "reconSection";
+    }
+
+    paneIds.forEach((paneId) => {
+        const node = dom[paneId];
+        if (!node) {
+            return;
+        }
+        const isActive = paneId === state.activePane;
+        node.classList.toggle("pane-hidden", !isActive);
+    });
+
+    dom.workspaceLayout.classList.add("single-pane");
+
+    dom.workspaceTabs.querySelectorAll("[data-pane]").forEach((button) => {
+        const paneId = button.getAttribute("data-pane");
+        button.classList.toggle("active", paneId === state.activePane);
+    });
+}
+
+function handleWorkspaceTabClick(event) {
+    const button = event.target.closest("[data-pane]");
+    if (!button || !dom.workspaceTabs.contains(button)) {
+        return;
+    }
+
+    const paneId = button.getAttribute("data-pane");
+    if (!paneId || paneId === state.activePane) {
+        return;
+    }
+
+    state.activePane = paneId;
+    renderWorkspacePane();
+    persistStateDebounced();
+}
+
+function handleActiveShowMore() {
+    state.activeDisplayLimit = Math.min(80, state.activeDisplayLimit + 10);
+    renderActiveTools();
+    persistStateDebounced();
+}
+
+async function handleCopyDetailedReport() {
+    const report = buildMarkdownReport();
+    const copied = await copyText(report);
+    showToast(copied ? "Detailed report copied." : "Clipboard copy failed.", copied ? "success" : "error");
+}
+
+function updateDetailedReportPreview() {
+    dom.scanReportPreview.value = buildMarkdownReport();
 }
 
 function createDefaultReconStatus() {
@@ -553,6 +624,14 @@ function hydrateState() {
             state.compactMode = saved.compactMode;
         }
 
+        if (Number.isFinite(saved.activeDisplayLimit)) {
+            state.activeDisplayLimit = Math.max(10, Math.min(80, Number(saved.activeDisplayLimit)));
+        }
+
+        if (typeof saved.activePane === "string") {
+            state.activePane = saved.activePane;
+        }
+
         if (saved.scanSummary && typeof saved.scanSummary === "object") {
             state.scanSummary = saved.scanSummary;
         }
@@ -576,6 +655,8 @@ function persistState() {
         activeFilter: state.activeFilter,
         activeQuery: state.activeQuery,
         compactMode: state.compactMode,
+        activeDisplayLimit: state.activeDisplayLimit,
+        activePane: state.activePane,
         scanSummary: state.scanSummary
     };
 
@@ -947,6 +1028,7 @@ function renderActiveFilters() {
         button.addEventListener("click", () => {
             const category = button.getAttribute("data-filter") || DEFAULT_FILTER;
             state.activeFilter = category;
+            state.activeDisplayLimit = 10;
             persistState();
             renderActiveFilters();
             renderActiveTools();
@@ -972,14 +1054,22 @@ function renderActiveTools() {
         return haystack.includes(query);
     });
 
-    dom.activeToolCount.textContent = `${visibleTools.length} visible | ${state.selectedToolIds.length} bundled`;
+    const pagedTools = visibleTools.slice(0, state.activeDisplayLimit);
+    dom.activeToolCount.textContent = `${pagedTools.length}/${visibleTools.length} visible | ${state.selectedToolIds.length} bundled`;
+
+    const hasMore = visibleTools.length > pagedTools.length;
+    dom.activeShowMoreBtn.hidden = !hasMore;
+    dom.activeShowMoreBtn.disabled = !hasMore;
+    dom.activeShowMoreBtn.textContent = hasMore
+        ? `Show More (${visibleTools.length - pagedTools.length} remaining)`
+        : "Show More";
 
     if (!visibleTools.length) {
         dom.activeToolGrid.innerHTML = "<article class=\"tool-card\"><p class=\"tool-status\">No tools match the current filter or search query.</p></article>";
         return;
     }
 
-    dom.activeToolGrid.innerHTML = visibleTools
+    dom.activeToolGrid.innerHTML = pagedTools
         .map((tool) => {
             const selected = state.selectedToolIds.includes(tool.id);
             const command = materializeCommand(tool);
@@ -1200,6 +1290,8 @@ function handleClearSession() {
     state.selectedToolIds = [];
     state.activeFilter = DEFAULT_FILTER;
     state.activeQuery = "";
+    state.activeDisplayLimit = 10;
+    state.activePane = "reconSection";
     state.scanSummary = null;
     state.isReconRunning = false;
 
@@ -1221,6 +1313,7 @@ function handleExportReport() {
 function refreshScanSummary() {
     state.scanSummary = buildScanSummary();
     renderScanSummary();
+    updateDetailedReportPreview();
     renderReconStats();
     persistStateDebounced();
 }

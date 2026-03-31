@@ -7,6 +7,8 @@ It is designed for readability and operational flow:
 - Passive reconnaissance modules to map exposure quickly.
 - Active testing toolcards organized by category.
 - Search and compact mode to reduce visual clutter.
+- Tabbed workspace to focus one section at a time.
+- Incremental tool rendering with Show More for smoother browsing.
 - Findings tracking with severity and evidence.
 - Automated scan summary with risk score and recommendations.
 - One-click markdown report export with executive summary.
